@@ -10,7 +10,7 @@ environments:
 
   prod:
     project: eda-gemini-prd
-    bucket: eda-gemini-prd-invoices-input
+    bucket: eda-gemini-prd-pipeline
     dataset: ds_bq_gemini_prd
     region: us-central1
 
@@ -40,7 +40,7 @@ stages:
 
   bigquery:
     timeout_seconds: 15
-    table: extracted_invoices
+    table: extractions
 
   logging:
     timeout_seconds: 10

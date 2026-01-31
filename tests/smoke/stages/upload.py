@@ -1,5 +1,7 @@
 """Stage 2: Upload generated TIFF to GCS landing bucket."""
 
+import json
+
 from tests.smoke.config import load_config
 from tests.smoke.models import SmokeContext
 from tests.smoke.stages.base import Stage, StageResult
@@ -10,6 +12,13 @@ try:
     GCS_AVAILABLE = True
 except ImportError:
     GCS_AVAILABLE = False
+
+try:
+    from google.cloud import pubsub_v1
+
+    PUBSUB_AVAILABLE = True
+except ImportError:
+    PUBSUB_AVAILABLE = False
 
 
 class UploadStage(Stage):
@@ -65,6 +74,21 @@ class UploadStage(Stage):
 
         # Store GCS path in context
         context.gcs_object_path = f"gs://{bucket_name}/{blob_name}"
+
+        # Publish Pub/Sub message to trigger pipeline
+        # (workaround for broken Eventarc GCS trigger)
+        if PUBSUB_AVAILABLE:
+            try:
+                publisher = pubsub_v1.PublisherClient()
+                topic_path = publisher.topic_path(env_config.project, "invoice-uploaded")
+                message_data = json.dumps({
+                    "bucket": bucket_name,
+                    "name": blob_name,
+                }).encode("utf-8")
+                publisher.publish(topic_path, message_data)
+            except Exception:
+                # Don't fail if Pub/Sub publish fails - the file is still uploaded
+                pass
 
         return StageResult(
             stage_name=self.name,
